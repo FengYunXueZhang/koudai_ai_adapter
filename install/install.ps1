@@ -82,7 +82,7 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   if ($src -eq 'auto') { $src = 'gitee' }  # 国内默认 Gitee（GitHub 可加 -PluginSource github）
   $url = switch ($src) {
     'gitee'  { 'https://gitee.com/fengyun-senior/wechat_deepseek_harness_plugin/repository/archive/master.zip' }
-    'github' { 'https://github.com/fengyun-senior/wechat_deepseek_harness_plugin/archive/refs/heads/master.zip' }
+    'github' { 'https://github.com/FengYunXueZhang/koudai_ai_adapter/archive/refs/heads/master.zip' }
     default  { throw "未知插件来源 $src" }
   }
   Write-Host "从 $src 下载插件..."

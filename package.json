@@ -48,7 +48,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/REPLACE_WITH_GITHUB_USERNAME/wechat_deepseek_harness_plugin.git"
+    "url": "git+https://github.com/FengYunXueZhang/koudai_ai_adapter.git"
   },
   "license": "MIT"
 }
