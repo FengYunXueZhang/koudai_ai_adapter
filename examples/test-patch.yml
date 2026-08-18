@@ -1,0 +1,7 @@
+# 冒烟测试专用：放行 tester、打开工具预览、把出站消息写入审计文件。
+- id: wechat-remote
+  config:
+    allowlist: ['tester']
+    previewTools: true
+    baseUrl: 'http://127.0.0.1:3081'
+    tracePath: 'D:\LESH\dkm_app\.tools\wechat-trace.log'

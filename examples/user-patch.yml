@@ -1,0 +1,8 @@
+# 快速干跑示例：把下面这段追加到 ~/.dsh/profiles/web/cordis.patch.yml（用户层，热更新）
+# 或在启动时用 --patch ./examples/user-patch.yml 叠加。
+# 作用：放行 webhook 测试联系人，并打开工具预览。
+- id: wechat-remote
+  config:
+    allowlist: ['tester']
+    previewTools: true
+    maxReplyChars: 1500

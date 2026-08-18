@@ -1,0 +1,45 @@
+# dsh-plugin-wechat-remote bundle patch: 在 web profile 中插入微信桥插件。
+#
+# 本 patch 由 dsh 的 bundle 机制在启动时与其它层组合：
+#   dsh-base (insert) → dsh-web-app (insert) → 本 bundle (insert) → 用户 cordis.patch.yml
+# 每一行都是一个 Cordis Loader 条目；`name` 指向本包导出的插件，
+# `config` 里的每一项都可以在用户 patch 层 / Web 设置里覆盖（后写胜出）。
+
+- insert:
+    # 微信桥 host 插件：启动适配器（收微信消息）+ 驱动（发消息进 harness）+ 事件回流。
+    - id: wechat-remote
+      name: 'dsh-plugin-wechat-remote'
+      config:
+        # 接入适配器：webhook（本地干跑）| wecom（企业微信，生产推荐）| wechatferry（个人微信，有风险）
+        adapter: webhook
+        # 驱动方式：in-process（进程内直连网关，推荐）| http-api（独立桥进程）| headless-cli（子进程，最稳）
+        driver: in-process
+        # 允许控制的联系人 id 白名单；空数组 = 全部拒绝（安全默认）
+        allowlist: []
+        # 可选口令前缀，微信消息需以它开头才会被执行（例如 "robot "）
+        passphrase: ''
+        # 每个联系人一个持久会话（上下文连续）；false = 所有人共用一个会话
+        sessionPerContact: true
+        # 本 harness Web 服务地址（http-api 驱动用）
+        baseUrl: 'http://127.0.0.1:3080'
+        # 会话使用的 agent 预设（standard | code | cordis | minimal）
+        agentPreset: 'standard'
+        # 会话工作目录；留空使用 harness 启动目录
+        cwd: ''
+        # 微信单条消息最大字符数（超出分片发送）
+        maxReplyChars: 1500
+        # 是否在微信里预览"正在执行工具 xxx"提示
+        previewTools: false
+        # 出站消息审计文件（绝对路径），留空不落盘；联调时很有用
+        tracePath: ''
+        # 企业微信自建应用配置（adapter: wecom 时必填）
+        wecom:
+          corpid: ''
+          secret: ''
+          agentid: 0
+          token: ''
+          encodingAESKey: ''
+          callbackPath: '/wechat/wecom'
+        # webhook 干跑适配器在 harness Web 服务上注册的测试入口
+        webhook:
+          callbackPath: '/wechat-remote/test'

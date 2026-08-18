@@ -1,0 +1,33 @@
+{
+  "name": "dsh-plugin-wechat-remote",
+  "version": "0.1.0",
+  "description": "微信远程控制插件（DSH bundle）：把微信消息桥接进 DeepSeek Harness 的 agent 会话，让 agent 在沙箱内执行任务并把结果发回微信",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/bridge.js && node --check lib/adapters.js && node --check lib/drivers.js && node --check lib/wecom-crypto.js"
+  },
+  "dependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/schemastery": "^3.18.1"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "license": "MIT"
+}
