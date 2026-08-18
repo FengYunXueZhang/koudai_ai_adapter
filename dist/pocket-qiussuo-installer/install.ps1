@@ -79,7 +79,7 @@ if (-not (Test-Path $dshBin)) {
   # npm 全局 bin 可能在 node 目录下
   $dshBin = (Get-ChildItem $NodeDir -Filter 'dsh*' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
 }
-Check 'dsh CLI 安装失败（可重跑本安装器）', (Test-Path $dshBin)
+Check 'dsh CLI 安装失败（可重跑本安装器）' (Test-Path $dshBin)
 Write-Host "dsh 就绪 ✓"
 
 # ---------- 4. 拉取插件 ----------
@@ -108,12 +108,18 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
 Push-Location $PluginDir
 & $pnpm install --store-dir (Join-Path $Base 'pnpm-store') 2>&1 | Out-Null
 Pop-Location
-Check '插件依赖安装失败', (Test-Path (Join-Path $PluginDir 'node_modules'))
+Check '插件依赖安装失败' (Test-Path (Join-Path $PluginDir 'node_modules'))
 
 # ---------- 5. 注册插件 + 写入配置 ----------
 Step '5/6 注册插件并写入配置'
-& $dshBin plugin --profile web add $PluginDir -w 2>&1 | Out-Null
-Check '插件注册失败', ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null)
+$profilePkg = Join-Path $ProfileDir 'package.json'
+$alreadyRegistered = (Test-Path $profilePkg) -and ((Get-Content $profilePkg -Raw -Encoding UTF8) -match 'dsh-plugin-wechat-remote')
+if ($alreadyRegistered) {
+  Write-Host "插件已注册过，跳过重新链接（保留现有安装）" -ForegroundColor Yellow
+} else {
+  & $dshBin plugin --profile web add $PluginDir -w 2>&1 | Out-Null
+  Check '插件注册失败' ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null)
+}
 
 # 设备标识（每次安装唯一）
 $deviceId = 'pc-' + (Get-Random -Minimum 100000 -Maximum 999999)
