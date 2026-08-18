@@ -14,7 +14,7 @@
 | 渠道 | 地址 |
 |---|---|
 | GitHub Release | https://github.com/FengYunXueZhang/koudai_ai_adapter/releases/latest |
-| 国内镜像（Gitee） | https://gitee.com/fengyun-senior/wechat_deepseek_harness_plugin/releases |
+| 国内镜像（Gitee 直链） | https://gitee.com/fengyun-senior/wechat_deepseek_harness_plugin/raw/master/dist/pocket-qiussuo-installer.zip |
 
 下载 **`pocket-qiussuo-installer.zip`**（仅 4.5KB）→ 解压 → **双击「一键安装.bat」**：
 
