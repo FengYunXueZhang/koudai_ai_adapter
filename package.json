@@ -1,7 +1,7 @@
 {
   "name": "dsh-plugin-wechat-remote",
   "version": "0.1.0",
-  "description": "微信远程控制插件（DSH bundle）：把微信消息桥接进 DeepSeek Harness 的 agent 会话，让 agent 在沙箱内执行任务并把结果发回微信",
+  "description": "WeChat remote control plugin for DeepSeek Harness (DSH bundle): bridges WeChat messages into the harness agent, executes tasks in the sandbox, and sends results back to WeChat. 微信远程控制插件：让微信消息驱动 DeepSeek Harness 的 agent。",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -15,7 +15,21 @@
   "files": [
     "lib",
     "cordis.patch.yml",
+    "examples",
     "README.md"
+  ],
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "wechat",
+    "wecom",
+    "enterprise-wechat",
+    "cordis",
+    "remote-control",
+    "plugin",
+    "微信",
+    "企业微信"
   ],
   "scripts": {
     "check": "node --check lib/index.js && node --check lib/bridge.js && node --check lib/adapters.js && node --check lib/drivers.js && node --check lib/wecom-crypto.js"
@@ -28,6 +42,10 @@
     "bundle": {
       "patch": "./cordis.patch.yml"
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/REPLACE_WITH_GITHUB_USERNAME/wechat_deepseek_harness_plugin.git"
   },
   "license": "MIT"
 }

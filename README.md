@@ -1,8 +1,70 @@
-# dsh-plugin-wechat-remote — 微信远程控制 DSH 插件（设计 + 骨架实现）
+# dsh-plugin-wechat-remote — 微信远程控制 DSH 插件
 
 > 目标：在 **DeepSeek Harness（DSH）** 中作为一个 bundle 插件安装，让微信消息能够
 > 远程驱动 harness 里的 agent —— 你在微信里发一句话，agent 在沙箱内执行（跑命令、
-> 读写文件、搜索、调度等），把结果发回微信。附带一套可直接落地的骨架代码。
+> 读写文件、搜索、调度等），把结果发回微信。
+
+---
+
+## 0. 快速接入微信（Quick Start，约 10 分钟）
+
+### 0.1 安装插件（二选一）
+```powershell
+# 方式 A：npm 一条命令（推荐；需已安装 pnpm）
+dsh plugin --profile web add dsh-plugin-wechat-remote -w
+
+# 方式 B：从 GitHub 克隆
+git clone https://github.com/<你的GitHub用户名>/wechat_deepseek_harness_plugin.git
+cd wechat_deepseek_harness_plugin
+pnpm install
+dsh plugin --profile web add <克隆下来的绝对路径> -w
+```
+然后**重启 `dsh web`**（bundle 层启动时组合，必须重启才生效）。
+
+### 0.2 创建企业微信自建应用（5 分钟）
+1. 打开 https://work.weixin.qq.com/wework_admin/frame 管理后台 → 应用管理 → 创建应用 → 自建
+2. 记下三个值：**CorpID**（我的企业 → 企业信息）、**AgentId**、**Secret**（应用详情页）
+3. 在应用详情页「接收消息」设置里：
+   - URL：先留空，等 0.3 拿到隧道地址再填
+   - Token：自己填一串随机字符（记下）
+   - EncodingAESKey：点「随机生成」（记下）
+4. 可见范围：添加你自己（或需要控制的人）
+
+### 0.3 暴露公网回调地址（关键！企业微信服务器要能访问到你的机器）
+你的 harness 默认只监听 `127.0.0.1`，企业微信的服务器是**推消息**给你的，所以必须有一个公网可达的 HTTPS 地址，用一个内网穿透隧道即可：
+
+```powershell
+# 任选一个（国内推荐 cpolar / frp，海外推荐 cloudflared / ngrok）
+cpolar http 3080                 # → https://xxxx.cpolar.cn
+cloudflared tunnel --url http://127.0.0.1:3080   # → https://xxxx.trycloudflare.com
+ngrok http 3080                  # → https://xxxx.ngrok-free.app
+```
+拿到地址后，回到 0.2 第 3 步把 URL 填成：`https://<你的隧道域名>/wechat/wecom`
+
+> 也可以部署在有公网 IP / 服务器的机器上，把 `--trusted-host` 加上后直接访问。
+
+### 0.4 写配置（热更新，无需重启）
+把下面内容加入 `~/.dsh/profiles/web/cordis.patch.yml`（`userid` 在 企业微信 App → 我的 → 个人信息 里看）：
+```yaml
+- id: wechat-remote
+  config:
+    allowlist: ['你的userid']
+    adapter: wecom
+    wecom:
+      corpid: '企业ID'
+      secret: '应用Secret'
+      agentid: 1000002
+      token: '你填的Token'
+      encodingAESKey: '随机生成的AESKey'
+      callbackPath: '/wechat/wecom'
+```
+
+### 0.5 验证
+1. 企业微信管理后台「接收消息」点「保存」——显示"成功"即代表 URL 验证（GET echostr 解密）通过
+2. 用企业微信 App 给这个自建应用发一句话，例如「运行 node -e "console.log(21*2)" 并告诉我结果」
+3. 几秒后收到 agent 的回复（含工具执行预览和最终答案）即大功告成 ✅
+
+> 提示：个人微信（WeChatFerry 适配器）违反微信 ToS、有封号风险，仅作学习；生产请使用企业微信。
 
 ---
 
