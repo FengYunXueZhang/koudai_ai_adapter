@@ -122,11 +122,30 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
 } else {
   Write-Host "插件已存在 ✓"
 }
-# 安装插件依赖
-Write-Host "正在安装插件依赖（国内镜像源，约 1 分钟）..." -ForegroundColor Yellow
-Push-Location $PluginDir
-& $pnpm install --store-dir (Join-Path $Base 'pnpm-store') --no-optional --registry=https://registry.npmmirror.com 2>&1 | Out-Null
-Pop-Location
+# 安装插件依赖（若已完整则跳过，避免重复安装/卡死）
+$depsReady = (Test-Path (Join-Path $PluginDir 'node_modules\@deepseek-ai\cordis')) -and
+             (Test-Path (Join-Path $PluginDir 'node_modules\@deepseek-ai\schemastery'))
+if ($depsReady) {
+  Write-Host "插件依赖已就绪，跳过安装 ✓" -ForegroundColor Green
+} else {
+  Write-Host "正在安装插件依赖（国内镜像源，约 1 分钟）..." -ForegroundColor Yellow
+  Push-Location $PluginDir
+  # 超时保护：120 秒内没装完就放弃，避免永久卡死
+  $installJob = Start-Job -ScriptBlock {
+    param($pnpmCmd, $storeDir, $wd)
+    Set-Location $wd
+    & $pnpmCmd install --store-dir $storeDir --no-optional --registry=https://registry.npmmirror.com 2>&1
+  } -ArgumentList $pnpm, (Join-Path $Base 'pnpm-store'), $PluginDir
+  if (-not (Wait-Job $installJob -Timeout 120)) {
+    Stop-Job $installJob -ErrorAction SilentlyContinue
+    Pop-Location
+    Write-Host "依赖安装超时（网络慢？）。请重新双击安装，已下载部分会继续。" -ForegroundColor Yellow
+  } else {
+    Receive-Job $installJob | Select-Object -Last 3 | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkGray }
+    Remove-Job $installJob -Force -ErrorAction SilentlyContinue
+    Pop-Location
+  }
+}
 Check '插件依赖安装失败' (Test-Path (Join-Path $PluginDir 'node_modules'))
 
 # ---------- 5. 注册插件 + 写入配置 ----------
@@ -140,21 +159,20 @@ if ($alreadyRegistered) {
   Check '插件注册失败' ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null)
 }
 
-# 设备标识（每次安装唯一）
+# 设备标识（每次安装唯一；若沿用已有配置则用现有设备）
 $deviceId = 'pc-' + (Get-Random -Minimum 100000 -Maximum 999999)
 $token = -join ((48..57)+(97..122) | Get-Random -Count 24 | ForEach-Object {[char]$_})
 
-# 配对码：由 token 派生（与服务器同算法），6 位数字
-$sha = [System.Security.Cryptography.SHA256]::Create()
-$hex = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($token))).Replace('-','').ToLower()
-$code = ([Convert]::ToInt64($hex.Substring($hex.Length - 6), 16) % 1000000).ToString('D6')
-
-# 用户层配置：relay 适配器（若已存在 wechat-remote 配置则跳过，避免覆盖/重复）
+# 用户层配置：relay 适配器（若已存在 wechat-remote 配置则沿用，避免覆盖/重复）
 $patchFile = Join-Path $ProfileDir 'cordis.patch.yml'
+$skipPatch = $false
 if (Test-Path $patchFile) {
   $existing = Get-Content $patchFile -Raw -Encoding UTF8
   if ($existing -match 'id: wechat-remote') {
-    Write-Host "检测到已存在 wechat-remote 配置，跳过写入（如需更换设备，请先清理 $patchFile 中的 wechat-remote 段）" -ForegroundColor Yellow
+    Write-Host "检测到已存在 wechat-remote 配置，沿用现有设备" -ForegroundColor Yellow
+    # 提取现有 deviceId / token，让下方展示的配对码与实际绑定一致
+    if ($existing -match "deviceId:\s*'?([^'\s]+)") { $deviceId = $Matches[1] }
+    if ($existing -match "token:\s*'?([^'\s]+)") { $token = $Matches[1] }
     $skipPatch = $true
   }
 }
@@ -175,6 +193,11 @@ if (-not $skipPatch) {
   Add-Content -Path $patchFile -Value $patch -Encoding UTF8
   Write-Host "relay 配置已写入（设备ID: $deviceId）"
 }
+
+# 配对码：由 token 派生（与服务器同算法），6 位数字
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$hex = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($token))).Replace('-','').ToLower()
+$code = ([Convert]::ToInt64($hex.Substring($hex.Length - 6), 16) % 1000000).ToString('D6')
 
 # DeepSeek API Key
 Step '6/6 配置 DeepSeek API Key'
