@@ -38,6 +38,9 @@
     "@deepseek-ai/cordis": "^4.0.1",
     "@deepseek-ai/schemastery": "^3.18.1"
   },
+  "optionalDependencies": {
+    "@wechatferry/core": "^0.0.26"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
