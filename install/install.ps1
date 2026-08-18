@@ -82,24 +82,28 @@ if (-not (Test-Path $dshBin)) {
 Check 'dsh CLI 安装失败（可重跑本安装器）' (Test-Path $dshBin)
 Write-Host "dsh 就绪 ✓"
 
-# ---------- 4. 拉取插件 ----------
+# ---------- 4. 拉取插件（逐文件 raw 直链，规避 Gitee 归档下载页） ----------
 Step '4/6 获取微信遥控插件'
+$pluginFiles = @('package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/adapters.js', 'lib/bridge.js', 'lib/drivers.js', 'lib/wecom-crypto.js')
 if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
-  $zip = Join-Path $Base 'plugin.zip'
   $src = $PluginSource
   if ($src -eq 'auto') { $src = 'gitee' }  # 国内默认 Gitee（GitHub 可加 -PluginSource github）
-  $url = switch ($src) {
-    'gitee'  { 'https://gitee.com/fengyun-senior/wechat_deepseek_harness_plugin/repository/archive/master.zip' }
-    'github' { 'https://github.com/FengYunXueZhang/koudai_ai_adapter/archive/refs/heads/master.zip' }
+  $base = switch ($src) {
+    'gitee'  { 'https://gitee.com/fengyun-senior/wechat_deepseek_harness_plugin/raw/master' }
+    'github' { 'https://raw.githubusercontent.com/FengYunXueZhang/koudai_ai_adapter/master' }
     default  { throw "未知插件来源 $src" }
   }
-  Write-Host "从 $src 下载插件..."
-  Invoke-WebRequest -Uri $url -OutFile $zip
-  New-Item -ItemType Directory -Force -Path (Join-Path $Base 'plugin-tmp') | Out-Null
-  Expand-Archive -Path $zip -DestinationPath (Join-Path $Base 'plugin-tmp') -Force
-  $extracted = Get-ChildItem (Join-Path $Base 'plugin-tmp') -Directory | Select-Object -First 1
-  Move-Item $extracted.FullName $PluginDir -Force
-  Remove-Item $zip, (Join-Path $Base 'plugin-tmp') -Recurse -Force -ErrorAction SilentlyContinue
+  Write-Host "从 $src 下载插件文件..."
+  New-Item -ItemType Directory -Force -Path (Join-Path $PluginDir 'lib') | Out-Null
+  $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0'
+  foreach ($f in $pluginFiles) {
+    try {
+      Invoke-WebRequest -Uri "$base/$f" -OutFile (Join-Path $PluginDir $f) -TimeoutSec 40 -UserAgent $ua
+    } catch {
+      throw "下载插件文件失败: $f —— $($_.Exception.Message)"
+    }
+  }
+  Check '插件文件不完整' ((Test-Path (Join-Path $PluginDir 'package.json')) -and (Get-Content (Join-Path $PluginDir 'lib\index.js') -Raw -Encoding UTF8).Contains('relay'))
   Write-Host "插件已下载到 $PluginDir"
 } else {
   Write-Host "插件已存在 ✓"
