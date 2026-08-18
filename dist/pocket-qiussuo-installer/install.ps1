@@ -23,6 +23,20 @@ Write-Host "==============================================" -ForegroundColor Gre
 # 输出编码对齐（避免中文叠字）
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# 防重复运行：锁文件机制（避免进程扫描误判其它含 install.ps1 字样的进程）
+$lockFile = Join-Path $env:TEMP 'koudai-qiussuo-installer.lock'
+if (Test-Path $lockFile) {
+  $lockAgeMin = 0
+  try { $lockAgeMin = ((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalMinutes } catch { }
+  if ($lockAgeMin -lt 30) {
+    Write-Host "已有安装器正在运行，或上次运行未正常结束（锁文件存在，$([math]::Round($lockAgeMin,1)) 分钟前创建）。" -ForegroundColor Yellow
+    Write-Host "如果确认没有其它安装窗口，请删除文件 $lockFile 后重新运行。" -ForegroundColor Yellow
+    Write-Host "按回车退出"; Read-Host
+    exit 1
+  }
+}
+try { [IO.File]::WriteAllText($lockFile, "$PID|$(Get-Date -Format o)") } catch { }
+
 function Step($msg) { Write-Host "`n[$msg]" -ForegroundColor Cyan }
 function Check($desc, $ok) { if (-not $ok) { throw "步骤失败：$desc" } }
 
@@ -88,7 +102,7 @@ $pluginFiles = @('package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/adapte
 if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   $src = $PluginSource
   if ($src -eq 'auto') { $src = 'gitee' }  # 国内默认 Gitee（GitHub 可加 -PluginSource github）
-  $base = switch ($src) {
+  $rawBase = switch ($src) {
     'gitee'  { 'https://gitee.com/fengyun-senior/wechat_deepseek_harness_plugin/raw/master' }
     'github' { 'https://raw.githubusercontent.com/FengYunXueZhang/koudai_ai_adapter/master' }
     default  { throw "未知插件来源 $src" }
@@ -98,7 +112,7 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0'
   foreach ($f in $pluginFiles) {
     try {
-      Invoke-WebRequest -Uri "$base/$f" -OutFile (Join-Path $PluginDir $f) -TimeoutSec 40 -UserAgent $ua
+      Invoke-WebRequest -Uri "$rawBase/$f" -OutFile (Join-Path $PluginDir $f) -TimeoutSec 40 -UserAgent $ua
     } catch {
       throw "下载插件文件失败: $f —— $($_.Exception.Message)"
     }
@@ -109,6 +123,7 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   Write-Host "插件已存在 ✓"
 }
 # 安装插件依赖
+Write-Host "正在安装插件依赖（首次需下载约 20MB，请耐心等待 1~3 分钟）..." -ForegroundColor Yellow
 Push-Location $PluginDir
 & $pnpm install --store-dir (Join-Path $Base 'pnpm-store') 2>&1 | Out-Null
 Pop-Location
@@ -198,4 +213,5 @@ Write-Host "  以后手动启动：双击 $launcher" -ForegroundColor Yellow
 Write-Host "  小程序里：设置 → 添加设备 → 输入配对码 → 即可远控本机" -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Green
 Write-Host ""
+Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
 Write-Host "按回车退出"; Read-Host

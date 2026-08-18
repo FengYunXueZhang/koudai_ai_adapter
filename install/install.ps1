@@ -23,14 +23,19 @@ Write-Host "==============================================" -ForegroundColor Gre
 # 输出编码对齐（避免中文叠字）
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-# 防重复运行：已有其它安装器实例时退出
-$otherInst = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
-  Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*install.ps1*' } | Select-Object -First 1
-if ($otherInst) {
-  Write-Host "检测到已有安装器在运行（PID $($otherInst.ProcessId)），请先关闭其它安装窗口，再重新运行本程序。" -ForegroundColor Yellow
-  Write-Host "按回车退出"; Read-Host
-  exit 1
+# 防重复运行：锁文件机制（避免进程扫描误判其它含 install.ps1 字样的进程）
+$lockFile = Join-Path $env:TEMP 'koudai-qiussuo-installer.lock'
+if (Test-Path $lockFile) {
+  $lockAgeMin = 0
+  try { $lockAgeMin = ((Get-Date) - (Get-Item $lockFile).LastWriteTime).TotalMinutes } catch { }
+  if ($lockAgeMin -lt 30) {
+    Write-Host "已有安装器正在运行，或上次运行未正常结束（锁文件存在，$([math]::Round($lockAgeMin,1)) 分钟前创建）。" -ForegroundColor Yellow
+    Write-Host "如果确认没有其它安装窗口，请删除文件 $lockFile 后重新运行。" -ForegroundColor Yellow
+    Write-Host "按回车退出"; Read-Host
+    exit 1
+  }
 }
+try { [IO.File]::WriteAllText($lockFile, "$PID|$(Get-Date -Format o)") } catch { }
 
 function Step($msg) { Write-Host "`n[$msg]" -ForegroundColor Cyan }
 function Check($desc, $ok) { if (-not $ok) { throw "步骤失败：$desc" } }
@@ -208,4 +213,5 @@ Write-Host "  以后手动启动：双击 $launcher" -ForegroundColor Yellow
 Write-Host "  小程序里：设置 → 添加设备 → 输入配对码 → 即可远控本机" -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Green
 Write-Host ""
+Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
 Write-Host "按回车退出"; Read-Host
