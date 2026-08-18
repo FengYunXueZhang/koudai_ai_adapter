@@ -109,6 +109,11 @@ Step '5/6 注册插件并写入配置'
 $deviceId = 'pc-' + (Get-Random -Minimum 100000 -Maximum 999999)
 $token = -join ((48..57)+(97..122) | Get-Random -Count 24 | ForEach-Object {[char]$_})
 
+# 配对码：由 token 派生（与服务器同算法），6 位数字
+$sha = [System.Security.Cryptography.SHA256]::Create()
+$hex = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($token))).Replace('-','').ToLower()
+$code = ([Convert]::ToInt64($hex.Substring($hex.Length - 6), 16) % 1000000).ToString('D6')
+
 # 用户层配置：relay 适配器
 $patch = @"
 
@@ -156,9 +161,11 @@ Start-Sleep -Seconds 12
 Write-Host ""
 Write-Host "==============================================" -ForegroundColor Green
 Write-Host "  安装完成！" -ForegroundColor Green
-Write-Host "  设备ID（填进小程序设置页）: $deviceId" -ForegroundColor Yellow
+Write-Host "  设备ID : $deviceId" -ForegroundColor Yellow
+Write-Host "  配对码 : $code   ← 在小程序「设置→添加设备」里填这个" -ForegroundColor Yellow
+Write-Host "  （扫码绑定格式：poket:$deviceId`:$code）" -ForegroundColor DarkGray
 Write-Host "  以后手动启动：双击 $launcher" -ForegroundColor Yellow
-Write-Host "  小程序里：设置 → 目标设备填上面ID → 发送消息即可远控本机" -ForegroundColor Green
+Write-Host "  小程序里：设置 → 添加设备 → 输入配对码 → 即可远控本机" -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "按回车退出"; Read-Host
