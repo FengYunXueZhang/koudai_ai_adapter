@@ -87,7 +87,7 @@ Step '3/6 安装 DeepSeek Harness'
 $dshBin = Join-Path $NodeDir 'dsh.cmd'
 if (-not (Test-Path $dshBin)) {
   Write-Host "安装 dsh CLI（首次约 1 分钟）..."
-  & "$NodeDir\npm.cmd" install -g @deepseek-ai/dsh 2>&1 | Out-Null
+  & "$NodeDir\npm.cmd" install -g @deepseek-ai/dsh --registry=https://registry.npmmirror.com 2>&1 | Out-Null
 }
 if (-not (Test-Path $dshBin)) {
   # npm 全局 bin 可能在 node 目录下
@@ -123,9 +123,9 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   Write-Host "插件已存在 ✓"
 }
 # 安装插件依赖
-Write-Host "正在安装插件依赖（首次需下载约 20MB，请耐心等待 1~3 分钟）..." -ForegroundColor Yellow
+Write-Host "正在安装插件依赖（国内镜像源，约 1 分钟）..." -ForegroundColor Yellow
 Push-Location $PluginDir
-& $pnpm install --store-dir (Join-Path $Base 'pnpm-store') 2>&1 | Out-Null
+& $pnpm install --store-dir (Join-Path $Base 'pnpm-store') --no-optional --registry=https://registry.npmmirror.com 2>&1 | Out-Null
 Pop-Location
 Check '插件依赖安装失败' (Test-Path (Join-Path $PluginDir 'node_modules'))
 
