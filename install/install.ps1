@@ -23,6 +23,15 @@ Write-Host "==============================================" -ForegroundColor Gre
 # 输出编码对齐（避免中文叠字）
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
+# 防重复运行：已有其它安装器实例时退出
+$otherInst = Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+  Where-Object { $_.ProcessId -ne $PID -and $_.CommandLine -like '*install.ps1*' } | Select-Object -First 1
+if ($otherInst) {
+  Write-Host "检测到已有安装器在运行（PID $($otherInst.ProcessId)），请先关闭其它安装窗口，再重新运行本程序。" -ForegroundColor Yellow
+  Write-Host "按回车退出"; Read-Host
+  exit 1
+}
+
 function Step($msg) { Write-Host "`n[$msg]" -ForegroundColor Cyan }
 function Check($desc, $ok) { if (-not $ok) { throw "步骤失败：$desc" } }
 
@@ -109,6 +118,7 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   Write-Host "插件已存在 ✓"
 }
 # 安装插件依赖
+Write-Host "正在安装插件依赖（首次需下载约 20MB，请耐心等待 1~3 分钟）..." -ForegroundColor Yellow
 Push-Location $PluginDir
 & $pnpm install --store-dir (Join-Path $Base 'pnpm-store') 2>&1 | Out-Null
 Pop-Location
