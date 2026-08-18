@@ -88,7 +88,7 @@ $pluginFiles = @('package.json', 'cordis.patch.yml', 'lib/index.js', 'lib/adapte
 if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   $src = $PluginSource
   if ($src -eq 'auto') { $src = 'gitee' }  # 国内默认 Gitee（GitHub 可加 -PluginSource github）
-  $base = switch ($src) {
+  $rawBase = switch ($src) {
     'gitee'  { 'https://gitee.com/fengyun-senior/wechat_deepseek_harness_plugin/raw/master' }
     'github' { 'https://raw.githubusercontent.com/FengYunXueZhang/koudai_ai_adapter/master' }
     default  { throw "未知插件来源 $src" }
@@ -98,7 +98,7 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
   $ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0'
   foreach ($f in $pluginFiles) {
     try {
-      Invoke-WebRequest -Uri "$base/$f" -OutFile (Join-Path $PluginDir $f) -TimeoutSec 40 -UserAgent $ua
+      Invoke-WebRequest -Uri "$rawBase/$f" -OutFile (Join-Path $PluginDir $f) -TimeoutSec 40 -UserAgent $ua
     } catch {
       throw "下载插件文件失败: $f —— $($_.Exception.Message)"
     }
