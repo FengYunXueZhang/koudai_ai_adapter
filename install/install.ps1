@@ -13,12 +13,18 @@ param(
   [string]$PluginSource = 'auto'   # auto | gitee | github | local
 )
 
-$ErrorActionPreference = 'Stop'
-$Host.UI.RawUI.WindowTitle = '口袋求索 · 设备端一键安装'
+$ErrorActionPreference = 'Continue'
+$Host.UI.RawUI.WindowTitle = 'Koudai AI Installer'
 
 Write-Host "==============================================" -ForegroundColor Green
 Write-Host "  口袋求索 · 设备端一键安装" -ForegroundColor Green
 Write-Host "==============================================" -ForegroundColor Green
+
+# 输出编码对齐（避免中文叠字）
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+function Step($msg) { Write-Host "`n[$msg]" -ForegroundColor Cyan }
+function Check($desc, $ok) { if (-not $ok) { throw "步骤失败：$desc" } }
 
 $NodeVersion = 'v20.19.0'
 $Base = Join-Path $env:LOCALAPPDATA 'pocket-qiussuo'
@@ -73,6 +79,7 @@ if (-not (Test-Path $dshBin)) {
   # npm 全局 bin 可能在 node 目录下
   $dshBin = (Get-ChildItem $NodeDir -Filter 'dsh*' -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
 }
+Check 'dsh CLI 安装失败（可重跑本安装器）', (Test-Path $dshBin)
 Write-Host "dsh 就绪 ✓"
 
 # ---------- 4. 拉取插件 ----------
@@ -101,10 +108,12 @@ if (-not (Test-Path (Join-Path $PluginDir 'package.json'))) {
 Push-Location $PluginDir
 & $pnpm install --store-dir (Join-Path $Base 'pnpm-store') 2>&1 | Out-Null
 Pop-Location
+Check '插件依赖安装失败', (Test-Path (Join-Path $PluginDir 'node_modules'))
 
 # ---------- 5. 注册插件 + 写入配置 ----------
 Step '5/6 注册插件并写入配置'
 & $dshBin plugin --profile web add $PluginDir -w 2>&1 | Out-Null
+Check '插件注册失败', ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq $null)
 
 # 设备标识（每次安装唯一）
 $deviceId = 'pc-' + (Get-Random -Minimum 100000 -Maximum 999999)
@@ -115,8 +124,17 @@ $sha = [System.Security.Cryptography.SHA256]::Create()
 $hex = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($token))).Replace('-','').ToLower()
 $code = ([Convert]::ToInt64($hex.Substring($hex.Length - 6), 16) % 1000000).ToString('D6')
 
-# 用户层配置：relay 适配器
-$patch = @"
+# 用户层配置：relay 适配器（若已存在 wechat-remote 配置则跳过，避免覆盖/重复）
+$patchFile = Join-Path $ProfileDir 'cordis.patch.yml'
+if (Test-Path $patchFile) {
+  $existing = Get-Content $patchFile -Raw -Encoding UTF8
+  if ($existing -match 'id: wechat-remote') {
+    Write-Host "检测到已存在 wechat-remote 配置，跳过写入（如需更换设备，请先清理 $patchFile 中的 wechat-remote 段）" -ForegroundColor Yellow
+    $skipPatch = $true
+  }
+}
+if (-not $skipPatch) {
+  $patch = @"
 
 # 口袋求索 relay 配置（一键安装器生成）
 - id: wechat-remote
@@ -129,8 +147,9 @@ $patch = @"
       deviceId: '$deviceId'
       token: '$token'
 "@
-Add-Content -Path (Join-Path $ProfileDir 'cordis.patch.yml') -Value $patch -Encoding UTF8
-Write-Host "relay 配置已写入（设备ID: $deviceId）"
+  Add-Content -Path $patchFile -Value $patch -Encoding UTF8
+  Write-Host "relay 配置已写入（设备ID: $deviceId）"
+}
 
 # DeepSeek API Key
 Step '6/6 配置 DeepSeek API Key'
